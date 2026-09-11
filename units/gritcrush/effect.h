@@ -35,11 +35,12 @@
 /*
  *  File: effect.h
  *
- *  Dummy generic effect template instance.
+ *  GritCrush: bitcrusher + sample-rate reducer with dry/wet mix.
  *
  */
 #include "processor.h"
 #include "unit_genericfx.h"
+#include <cmath>
 
 class Effect : public Processor
 {
@@ -49,27 +50,27 @@ public:
   // audio parameters
   enum
   {
-    PARAM1 = 0U,
-    PARAM2,
-    DEPTH,
-    PARAM4,
+    PARAM1 = 0U, // crush: bit-depth reduction amount
+    PARAM2,      // rate: sample-rate reduction amount
+    DEPTH,       // dry/wet balance
+    PARAM4,      // drive: pre-gain stage before crushing
     NUM_PARAMS
   };
 
   // Note: Make sure that default param values correspond to declarations in header.c
   struct Params
   {
-    float param1;
-    float param2;
+    float crush;
+    float rate;
     float depth;
-    uint32_t param4;
+    uint32_t drive;
 
     void reset()
     {
-      param1 = 0.f;
-      param2 = 0.f;
+      crush = 0.f;
+      rate = 0.f;
       depth = 0.f;
-      param4 = 1;
+      drive = 1;
     }
 
     Params() { reset(); }
@@ -77,11 +78,11 @@ public:
 
   enum
   {
-    PARAM4_VALUE0 = 0,
-    PARAM4_VALUE1,
-    PARAM4_VALUE2,
-    PARAM4_VALUE3,
-    NUM_PARAM4_VALUES,
+    DRIVE_VALUE0 = 0,
+    DRIVE_VALUE1,
+    DRIVE_VALUE2,
+    DRIVE_VALUE3,
+    NUM_DRIVE_VALUES,
   };
 
   inline void setParameter(uint8_t index, int32_t value) override final
@@ -90,22 +91,22 @@ public:
     {
     case PARAM1:
       // 10bit 0-1023 parameter
-      params_.param1 = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
+      params_.crush = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
       break;
 
     case PARAM2:
       // 10bit 0-1023 parameter
-      params_.param2 = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
+      params_.rate = param_10bit_to_f32(value); // 0 .. 1023 -> 0.0 .. 1.0
       break;
 
     case DEPTH:
       // Single digit base-10 fractional value, bipolar dry/wet
-      params_.depth = value / 1000.f; // -100.0 .. 100.0 -> -1.0 .. 1.0
+      params_.depth = value / 1000.f; // -1000 .. 1000 -> -1.0 .. 1.0
       break;
 
     case PARAM4:
       // strings type parameter, receiving index value
-      params_.param4 = value;
+      params_.drive = value;
       break;
 
     default:
@@ -119,18 +120,18 @@ public:
     //       It can be assumed that caller will have copied or used the string
     //       before the next call to getParameterStrValue
 
-    static const char *param4_strings[NUM_PARAM4_VALUES] = {
-        "VAL 0",
-        "VAL 1",
-        "VAL 2",
-        "VAL 3",
+    static const char *drive_strings[NUM_DRIVE_VALUES] = {
+        "CLEAN",
+        "GRIT",
+        "CRUSH",
+        "NUKE",
     };
 
     switch (index)
     {
     case PARAM4:
-      if (value >= PARAM4_VALUE0 && value < NUM_PARAM4_VALUES)
-        return param4_strings[value];
+      if (value >= DRIVE_VALUE0 && value < NUM_DRIVE_VALUES)
+        return drive_strings[value];
       break;
     default:
       break;
@@ -144,9 +145,17 @@ public:
   {
     buffer_ = allocated_buffer;
     params_.reset();
+    reset();
   }
 
   void teardown() override final { buffer_ = nullptr; }
+
+  void reset() override final
+  {
+    hold_l_ = 0.f;
+    hold_r_ = 0.f;
+    hold_counter_ = 0;
+  }
 
   // audio processing callbacks
   void process(const float *__restrict in, float *__restrict out, uint32_t frames) override final
@@ -154,11 +163,35 @@ public:
     // Caching current parameter values. Consider smoothing sensitive parameters in audio loop
     const Params p = params_;
 
+    static constexpr float kDriveGains[NUM_DRIVE_VALUES] = {1.f, 2.f, 4.f, 8.f};
+    const float drive_gain = kDriveGains[p.drive < NUM_DRIVE_VALUES ? p.drive : 0];
+
+    // bit depth: 16 (clean) down to 2 (heavily crushed)
+    const float levels = std::exp2(15.f - p.crush * 14.f);
+
+    // sample-and-hold length: 1 (no reduction) up to 32 samples
+    const uint32_t hold_len = 1U + static_cast<uint32_t>(p.rate * 31.f + 0.5f);
+
+    // -1..1 -> 0..1 dry/wet balance ('BALN' center = equal mix)
+    const float mix = (p.depth + 1.f) * 0.5f;
+
     for (const float *out_end = out + frames * 2; out != out_end; in += 2, out += 2)
     {
-      // Process samples here
-      out[0] = in[0];
-      out[1] = in[1];
+      const float dry_l = in[0];
+      const float dry_r = in[1];
+
+      if (hold_counter_ == 0)
+      {
+        hold_l_ = dry_l;
+        hold_r_ = dry_r;
+      }
+      hold_counter_ = (hold_counter_ + 1) % hold_len;
+
+      const float wet_l = crushSample(hold_l_, drive_gain, levels);
+      const float wet_r = crushSample(hold_r_, drive_gain, levels);
+
+      out[0] = dry_l + (wet_l - dry_l) * mix;
+      out[1] = dry_r + (wet_r - dry_r) * mix;
     }
   }
 
@@ -189,6 +222,22 @@ public:
   }
 
 private:
+  static inline float clampf(float v, float lo, float hi)
+  {
+    return v < lo ? lo : (v > hi ? hi : v);
+  }
+
+  static inline float crushSample(float s, float drive_gain, float levels)
+  {
+    s = std::tanh(s * drive_gain);       // soft clip drive stage
+    s = std::round(s * levels) / levels; // bit-depth quantization
+    return clampf(s, -1.f, 1.f);
+  }
+
   float *buffer_; // valid range:  [buffer_, buffer_ + getBufferSize())
   Params params_;
+
+  float hold_l_ = 0.f;
+  float hold_r_ = 0.f;
+  uint32_t hold_counter_ = 0;
 };

@@ -58,15 +58,16 @@ const __unit_header genericfx_unit_header_t unit_header = {
       
       // See common/runtime.h for type enum and unit_param_t structure
 
-      // Examples of simple numeric parameters
-      {0, 1023, 0, 0, k_unit_param_type_none, 0, 0, 0, {"PARAM1"}},
-      {0, 1023, 0, 0, k_unit_param_type_none, 0, 0, 0, {"PARAM2"}},
+      // Bit-depth reduction amount
+      {0, 1023, 0, 0, k_unit_param_type_none, 0, 0, 0, {"CRUSH"}},
+      // Sample-rate reduction amount
+      {0, 1023, 0, 0, k_unit_param_type_none, 0, 0, 0, {"RATE"}},
       
-      // Example of a parameter with negative values and one fractional digit (base 10), using the drywet display type 
+      // Dry/wet balance, one fractional digit (base 10), using the drywet display type 
       {-1000, 1000, 0, 0, k_unit_param_type_drywet, 1, 1, 0, {"DEPTH"}},
 
-      // Example of a strings type parameter
-      {0, 3, 0, 1, k_unit_param_type_strings, 0, 0, 0, {"PARAM4"}},
+      // Pre-gain drive stage, strings type parameter
+      {0, 3, 0, 1, k_unit_param_type_strings, 0, 0, 0, {"DRIVE"}},
       
       {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
       {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},

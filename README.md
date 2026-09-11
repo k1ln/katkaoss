@@ -18,6 +18,77 @@ The NTS-3 only supports one kind of user unit: **genericfx** (a generic audio ef
 generator loaded into one of its 4 effect runtime slots). There's no oscillator/modfx/delfx/revfx
 split like on prologue/minilogue xd/NTS-1.
 
+Every unit exposes the same 4 controls: **X** and **Y** on the pad, a bipolar **DEPTH** (dry/wet),
+and a 4-way **MODE** switch. Shared DSP building blocks (reverb, grain engine, pitch shifter,
+filters, delays) live in a header-only `dsp.h` copied into each unit directory.
+
+## Effect catalog
+
+All effects below are implemented and build to `.nts3unit`. Each row lists its `MODE` options.
+
+### Core / misc
+| Unit | Description | Modes |
+|------|-------------|-------|
+| gritcrush | Bitcrusher + sample-rate reducer | CLEAN/GRIT/CRUSH/NUKE |
+| ripple | Chorus / ensemble | 1V/2V/3V/WIDE |
+| drift | Flanger / phaser / jet | FLANGER/PHASER/CHORUS/JET |
+| warp | Pitch shifter / harmonizer | OCT-/5TH/OCT+/12TH |
+
+### Reverbs
+| Unit | Description | Modes |
+|------|-------------|-------|
+| space | General reverb | ROOM/HALL/PLATE/VAST |
+| roomverb | Tight rooms | TIGHT/WOOD/TILE/BOOTH |
+| hallverb | Concert halls | SMALL/MED/LARGE/EPIC |
+| plateverb | Bright plate | STD/BRITE/DARK/WIDE |
+| springverb | Dispersive spring tank | 1SPR/2SPR/3SPR/DRIP |
+| gateverb | Gated reverb | GATE/REV/DUCK/SLAM |
+| modverb | Modulated reverb | SOFT/LUSH/SEASICK/WOW |
+| shimmer | Octave-up shimmer reverb | OCT+/5TH/OCT-/DUAL |
+| nebula | Ambient delay + reverb wash | SOFT/GLASS/DARK/INF |
+
+### Granular synthesis
+| Unit | Description | Modes |
+|------|-------------|-------|
+| clouds | Granular cloud + reverb wash | GRAIN/CLOUD/DENSE/FREEZE |
+| grain | Granular delay / scatter | FWD/REV/PITCH/WILD |
+| freeze | Infinite grain freeze | LIVE/FREEZE/SMEAR/GLIDE |
+| ice | Crystalline pitched grains | OCT+/2OCT/5TH/DETUNE |
+| texture | Sustained texture generator | SPARSE/SOFT/DENSE/HAZE |
+| stutter | Beat-repeat / glitch | QTR/8TH/16TH/ROLL |
+| grainpitch | Pitched grain harmonizer | UNISON/OCT+/5TH/OCT- |
+| grainrev | Reverse grain cloud | SLOW/MED/FAST/CHAOS |
+| scatter | Wide stereo grain spray | NEAR/WIDE/PING/RAIN |
+| swarm | Dense detuned swarm | BEES/DRONE/STORM/CHOIR |
+
+### Reverb + granular combinations
+| Unit | Description | Modes |
+|------|-------------|-------|
+| cloudhall | Grains into a huge hall | HALL/CHURCH/CAVE/VOID |
+| shimgrain | Pitched grains + shimmer | OCT/5TH/2OCT/DUST |
+| frostbite | Icy reverse grains + bright verb | FROST/CRACK/BLIZZARD/THAW |
+| nimbus | Soft grain bloom + reverb | SOFT/DENSE/FREEZE/BLOOM |
+| aurora | Evolving grains + mod reverb | DAWN/NIGHT/SOLAR/POLAR |
+| grancath | Cathedral reverb + grains | NAVE/APSE/CRYPT/HEAVEN |
+| mist | Sparse grains + soft haze | FOG/HAZE/DAMP/DEW |
+| glacier | Slow pitched-down grains + verb | CALM/FLOW/CALVE/DEEP |
+| stardust | Sparkling pitched-up grains + verb | TWINKLE/COMET/NOVA/DRIFT |
+| vapor | Vaporwave slow-down + wow verb | MALL/DREAM/SLOW/PLUSH |
+
+### Wild combinations
+| Unit | Description | Modes |
+|------|-------------|-------|
+| wahdelverb | Auto-wah → delay → reverb | SLOW/FUNK/DUB/SPACE |
+| crushcloud | Bitcrush → grains → reverb | CLEAN/GRIT/CRUSH/NUKE |
+| phaseverb | Phaser → reverb | WARM/JET/DEEP/WASH |
+| flangrain | Flanger → grains | SOFT/JET/METAL/CHAOS |
+| ringverb | Ring mod → reverb | BELL/METAL/ALIEN/SUB |
+| glitch | Stutter + bitcrush + delay | STUT/REPEAT/TAPE/MANGLE |
+| voxwah | Formant/vowel filter → grains | AEIOU/TALK/CRY/ROBOT |
+| cosmic | Pitch → delay → reverb wash | RISE/FALL/WARP/BLKHOLE |
+| pingcloud | Ping-pong delay + grains | WIDE/DUB/GRAIN/INFIN |
+| meltdown | Wavefolder → reverb → drift | WARM/HARSH/LIQUID/OOZE |
+
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) (Docker Desktop or Engine), running.
