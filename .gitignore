@@ -1,0 +1,9 @@
+# Build artifacts from unit projects
+units/*/build/
+units/*/.dep
+units/*/*.map
+units/*/*.dmp
+units/*/*.list
+
+# macOS
+.DS_Store
