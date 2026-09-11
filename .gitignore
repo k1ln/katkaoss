@@ -8,5 +8,8 @@ units/*/*.list
 # WASM simulator output
 units/*/sim/
 
+# Aggregated deploy output
+deploy/
+
 # macOS
 .DS_Store
