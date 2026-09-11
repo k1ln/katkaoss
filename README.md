@@ -7,11 +7,20 @@ A build pipeline for developing custom effect units for the [Korg Nu:Tekt NTS-3 
 ```
 KatKaoss/
 ├── logue-sdk/            # git submodule: korginc/logue-sdk (toolchain, headers, docker build env)
+├── shared/
+│   └── dsp.h               # canonical shared DSP library (mirrored into each unit)
+├── tools/
+│   └── probe/              # host-side measurement rig (no device needed)
 ├── units/                 # your custom unit projects live here (kept out of the submodule)
 │   └── gritcrush/          # example genericfx unit, scaffolded from the SDK template
 └── scripts/
     ├── new_unit.sh         # scaffold a new unit project from the SDK template
-    └── build_unit.sh       # build a unit into a .nts3unit file via the SDK's Docker image
+    ├── build_unit.sh       # build a unit into a .nts3unit file via the SDK's Docker image
+    ├── sync_dsp.sh         # copy shared/dsp.h into every unit that uses it
+    ├── sync_params.py      # regenerate header.c parameter tables from effect.h
+    ├── probe_units.sh      # measure units on the host (see "Measuring units")
+    ├── calibrate_levels.py # level-match every mode to the dry signal
+    └── deploy.sh           # collect all .nts3unit files into deploy/
 ```
 
 The NTS-3 only supports one kind of user unit: **genericfx** (a generic audio effect / sound
@@ -20,74 +29,88 @@ split like on prologue/minilogue xd/NTS-1.
 
 Every unit exposes the same 4 controls: **X** and **Y** on the pad, a bipolar **DEPTH** (dry/wet),
 and a 4-way **MODE** switch. Shared DSP building blocks (reverb, grain engine, pitch shifter,
-filters, delays) live in a header-only `dsp.h` copied into each unit directory.
+filters, delays) live in the header-only [shared/dsp.h](shared/dsp.h). The SDK builds each unit
+directory in isolation, so every unit carries a mirrored copy — **edit `shared/dsp.h`, never a
+unit's `dsp.h`**, then run `scripts/sync_dsp.sh` to fan it out (it overwrites the unit copies).
 
 ## Effect catalog
 
-All effects below are implemented and build to `.nts3unit`. Each row lists its `MODE` options.
+46 units, all building to `.nts3unit`. Every unit exposes **X**, **Y**, a bipolar
+**DEPTH** (dry/wet), a 4-way **MODE**, and **DRIVE** (saturation, 0 = clean,
+~250 = warm, 1023 = fuzz). Granular units add three more knobs — **SHAPE**
+(grain envelope, percussive ↔ gated), **SCATTER** (per-grain pitch/size/timing
+randomness) and **REVERSE** (share of backwards grains) — reachable from the
+NTS-3 edit menu and assignable to X/Y.
+
+Every mode is level-matched to within ±0.6 dB of the dry signal at full wet
+(`scripts/calibrate_levels.py`), so switching units or modes changes the sound,
+not the volume.
+
+### Delays (tempo-synced unless noted)
+| Unit | Description | X / Y | Modes |
+|------|-------------|-------|-------|
+| tapedelay | Performance delay; Y past ~90% runs away into self-oscillation | TIME / FEEDBACK | TAPE/DUB/DIGI/SPACE |
+| revdelay | Reverse delay — every repeat plays backwards | TIME / FEEDBACK | REV/SWELL/OCT/SMEAR |
+| riser | Pitch-shifting feedback delay: each repeat climbs or falls | TIME / FEEDBACK | FIFTH/OCT+/DOWN/SHIMMER |
+| nebula | Ambient delay into a reverb wash (free time) | TIME / FEEDBACK | SOFT/GLASS/DARK/INF |
+| pingcloud | Ping-pong delay whose echoes get granulated (free time) | TIME / FEEDBACK | WIDE/DUB/GRAIN/INFIN |
+| stutter | Beat repeat: X = repeats per catch, touch to punch in | REPEATS / GATE | QTR/8TH/16TH/ROLL |
+| glitch | Beat repeat → bitcrush → feedback delay | RATE / CRUSH | STUT/REPEAT/TAPE/MANGLE |
 
 ### Core / misc
-| Unit | Description | Modes |
-|------|-------------|-------|
-| gritcrush | Bitcrusher + sample-rate reducer | CLEAN/GRIT/CRUSH/NUKE |
-| ripple | Chorus / ensemble | 1V/2V/3V/WIDE |
-| drift | Flanger / phaser / jet | FLANGER/PHASER/CHORUS/JET |
-| warp | Pitch shifter / harmonizer | OCT-/5TH/OCT+/12TH |
+| Unit | Description | X / Y | Modes |
+|------|-------------|-------|-------|
+| gritcrush | Bitcrusher + sample-rate reducer (the SDK example unit) | CRUSH / RATE | CLEAN/GRIT/CRUSH/NUKE |
+| drift | Stereo flanger / phaser / chorus / jet | RATE / FEEDBACK | FLANGER/PHASER/CHORUS/JET |
+| ripple | Stereo chorus / ensemble | RATE / MOD | 1V/2V/3V/WIDE |
+| warp | Pitch shifter with feedback (harmonizer / detune) | PITCH / FEEDBACK | OCT-/5TH/OCT+/12TH |
+| voxwah | Formant (vowel) filter → grains: the input talks | VOWEL / GRAIN | AEIOU/TALK/CRY/ROBOT |
 
 ### Reverbs
-| Unit | Description | Modes |
-|------|-------------|-------|
-| space | General reverb | ROOM/HALL/PLATE/VAST |
-| roomverb | Tight rooms | TIGHT/WOOD/TILE/BOOTH |
-| hallverb | Concert halls | SMALL/MED/LARGE/EPIC |
-| plateverb | Bright plate | STD/BRITE/DARK/WIDE |
-| springverb | Dispersive spring tank | 1SPR/2SPR/3SPR/DRIP |
-| gateverb | Gated reverb | GATE/REV/DUCK/SLAM |
-| modverb | Modulated reverb | SOFT/LUSH/SEASICK/WOW |
-| shimmer | Octave-up shimmer reverb | OCT+/5TH/OCT-/DUAL |
-| nebula | Ambient delay + reverb wash | SOFT/GLASS/DARK/INF |
+| Unit | Description | X / Y | Modes |
+|------|-------------|-------|-------|
+| space | The all-rounder: four genuinely different spaces | SIZE / TONE | ROOM/HALL/PLATE/VAST |
+| roomverb | Small real rooms, low diffusion so early reflections show | SIZE / TONE | TIGHT/WOOD/TILE/BOOTH |
+| hallverb | Concert halls, pre-delay scaling with size (0.9 s → 12 s) | SIZE / TONE | SMALL/MED/LARGE/EPIC |
+| plateverb | Studio plate: no pre-delay, maximum density | SIZE / TONE | STD/BRITE/DARK/WIDE |
+| springverb | Spring tank — dispersion inside the loop, not a room | TENSION / TONE | 1SPR/2SPR/3SPR/DRIP |
+| gateverb | Gated / reverse-ramp / ducking / slammed | SIZE / GATE | GATE/REV/DUCK/SLAM |
+| modverb | Modulated reverb: the tail itself moves | SIZE / MODRATE | SOFT/LUSH/SEASICK/WOW |
+| shimmer | Long cathedral with a pitch-shifted recirculating tail | SIZE / SHIMMER | OCT+/5TH/OCT-/DUAL |
+| ice | Short, glassy, bright — sparkle on top, no feedback | TUNE / GLISTEN | OCT+/2OCT/5TH/DETUNE |
+| ringverb | Ring modulator into a space | FREQ / SIZE | BELL/METAL/ALIEN/SUB |
+| phaseverb | Stereo phaser into a space | RATE / FEEDBACK | WARM/JET/DEEP/WASH |
+| meltdown | Wavefolder into a drifting space | FOLD / SIZE | WARM/HARSH/LIQUID/OOZE |
+| wahdelverb | Auto-wah → synced delay → reverb | WAH / DELAY | SLOW/FUNK/DUB/SPACE |
+| cosmic | Pitch cascade → delay → huge reverb (up to a 30 s void) | PITCH / TIME | RISE/FALL/WARP/BLKHOLE |
 
-### Granular synthesis
-| Unit | Description | Modes |
-|------|-------------|-------|
-| clouds | Granular cloud + reverb wash | GRAIN/CLOUD/DENSE/FREEZE |
-| grain | Granular delay / scatter | FWD/REV/PITCH/WILD |
-| freeze | Infinite grain freeze | LIVE/FREEZE/SMEAR/GLIDE |
-| ice | Crystalline pitched grains | OCT+/2OCT/5TH/DETUNE |
-| texture | Sustained texture generator | SPARSE/SOFT/DENSE/HAZE |
-| stutter | Beat-repeat / glitch | QTR/8TH/16TH/ROLL |
-| grainpitch | Pitched grain harmonizer | UNISON/OCT+/5TH/OCT- |
-| grainrev | Reverse grain cloud | SLOW/MED/FAST/CHAOS |
-| scatter | Wide stereo grain spray | NEAR/WIDE/PING/RAIN |
-| swarm | Dense detuned swarm | BEES/DRONE/STORM/CHOIR |
+### Granular
+| Unit | Description | X / Y | Modes |
+|------|-------------|-------|-------|
+| grain | Dry granular delay — the grains themselves, no space | SCATTER / SIZE | FWD/REV/PITCH/WILD |
+| grainpitch | Grain harmonizer: smooth, dense, pitched | PITCH / SIZE | UNISON/OCT+/5TH/OCT- |
+| grainrev | A cloud of backwards grains | SCATTER / SIZE | SLOW/MED/FAST/CHAOS |
+| scatter | Grains sprayed across the stereo field | SPRAY / SIZE | NEAR/WIDE/PING/RAIN |
+| swarm | Dense detuned swarm | SPREAD / SIZE | BEES/DRONE/STORM/CHOIR |
+| texture | Sustained granular textures | POSITION / SIZE | SPARSE/SOFT/DENSE/HAZE |
+| freeze | Capture and hold forever — touch the pad to catch | POSITION / SIZE | LIVE/FREEZE/SMEAR/GLIDE |
 
-### Reverb + granular combinations
-| Unit | Description | Modes |
-|------|-------------|-------|
-| cloudhall | Grains into a huge hall | HALL/CHURCH/CAVE/VOID |
-| shimgrain | Pitched grains + shimmer | OCT/5TH/2OCT/DUST |
-| frostbite | Icy reverse grains + bright verb | FROST/CRACK/BLIZZARD/THAW |
-| nimbus | Soft grain bloom + reverb | SOFT/DENSE/FREEZE/BLOOM |
-| aurora | Evolving grains + mod reverb | DAWN/NIGHT/SOLAR/POLAR |
-| grancath | Cathedral reverb + grains | NAVE/APSE/CRYPT/HEAVEN |
-| mist | Sparse grains + soft haze | FOG/HAZE/DAMP/DEW |
-| glacier | Slow pitched-down grains + verb | CALM/FLOW/CALVE/DEEP |
-| stardust | Sparkling pitched-up grains + verb | TWINKLE/COMET/NOVA/DRIFT |
-| vapor | Vaporwave slow-down + wow verb | MALL/DREAM/SLOW/PLUSH |
-
-### Wild combinations
-| Unit | Description | Modes |
-|------|-------------|-------|
-| wahdelverb | Auto-wah → delay → reverb | SLOW/FUNK/DUB/SPACE |
-| crushcloud | Bitcrush → grains → reverb | CLEAN/GRIT/CRUSH/NUKE |
-| phaseverb | Phaser → reverb | WARM/JET/DEEP/WASH |
-| flangrain | Flanger → grains | SOFT/JET/METAL/CHAOS |
-| ringverb | Ring mod → reverb | BELL/METAL/ALIEN/SUB |
-| glitch | Stutter + bitcrush + delay | STUT/REPEAT/TAPE/MANGLE |
-| voxwah | Formant/vowel filter → grains | AEIOU/TALK/CRY/ROBOT |
-| cosmic | Pitch → delay → reverb wash | RISE/FALL/WARP/BLKHOLE |
-| pingcloud | Ping-pong delay + grains | WIDE/DUB/GRAIN/INFIN |
-| meltdown | Wavefolder → reverb → drift | WARM/HARSH/LIQUID/OOZE |
+### Granular + reverb
+| Unit | Description | X / Y | Modes |
+|------|-------------|-------|-------|
+| clouds | Granular texture feeding a reverb wash | TEXTURE / SIZE | GRAIN/CLOUD/DENSE/FREEZE |
+| nimbus | Always-long soft grains blooming into a wide space | POSITION / DENSITY | SOFT/DENSE/FREEZE/BLOOM |
+| mist | Sparse droplets dissolving into a haze (reverb-forward) | DENSITY / SIZE | FOG/HAZE/DAMP/DEW |
+| cloudhall | Grains poured into big halls, grains still audible on top | TEXTURE / SIZE | HALL/CHURCH/CAVE/VOID |
+| grancath | Cathedral fed by choir-like octave/fifth grains | GRAIN / SIZE | NAVE/APSE/CRYPT/HEAVEN |
+| shimgrain | Sustained pitched grain cloud into a shimmer loop | GRAIN / SHIMMER | OCT/5TH/2OCT/DUST |
+| stardust | Tiny percussive pitched-up sparkles in a bright plate | SPARKLE / SIZE | TWINKLE/COMET/NOVA/DRIFT |
+| frostbite | Icy octave-up reverse grains in a thin bright space | FREEZE / SIZE | FROST/CRACK/BLIZZARD/THAW |
+| glacier | Slow pitched-down grains sinking into an immense space | PITCH / SIZE | CALM/FLOW/CALVE/DEEP |
+| aurora | Grains drifting through the buffer, heavy tail modulation | DRIFT / SIZE | DAWN/NIGHT/SOLAR/POLAR |
+| vapor | Vaporwave slow-down with tape wow | SLOW / SIZE | MALL/DREAM/SLOW/PLUSH |
+| crushcloud | Bitcrush → grains → small space | CRUSH / GRAIN | CLEAN/GRIT/CRUSH/NUKE |
+| flangrain | Stereo flanger → grains | RATE / GRAIN | SOFT/JET/METAL/CHAOS |
 
 ## Prerequisites
 
@@ -185,26 +208,60 @@ SIM_PORT=8080 scripts/sim_unit.sh <name>    # serve on a custom port
 
 ## Going deeper: editing effects and adding parameters
 
-Each effect is a self-contained C++ class in `units/<name>/effect.h`. Two files define its controls:
+Each effect is a self-contained C++ class in `units/<name>/effect.h`, and that
+file is the source of truth for the unit's controls:
 
-- `effect.h` — the DSP: `process()` (audio loop), `setParameter()` (maps param index → value),
-  `getParameterStrValue()` (MODE string labels), and the shared blocks it pulls from `dsp.h`.
-- `header.c` — the parameter descriptors (`min`/`max`/`init`/type/name) and their default X/Y/Depth
-  mappings. **The min/max here are the "borders"** — widen them to allow overcharging a control.
+- `process()` — the audio loop, usually a per-mode table plus a short inner loop.
+- `setParameter()` / `getParameterStrValue()` — parameter index → value, MODE labels.
+- The `enum { X, Y, DEPTH, MODE, NUM_PARAMS }` **names are what the NTS-3
+  displays**, so renaming a parameter there renames it on the device.
 
-**Yes, there are more parameters available.** The NTS-3 `genericfx` format supports up to **8**
-parameters. Each unit currently uses 5: X, Y, DEPTH, MODE, and DRIVE (index 4). You have **3 spare
-slots** (indices 5–7). To add one:
+`header.c` (the descriptors the device reads) is **generated** from `effect.h` by
+`scripts/sync_params.py` — don't hand-edit it. Comment directives control the
+parts that aren't in the enum:
 
-1. In `header.c`: bump `.num_params`, turn one of the empty `{0,0,0,0,...,{""}}` slots into a real
-   descriptor (e.g. `{0, 1023, 0, 400, k_unit_param_type_none, 0, 0, 0, {"TONE"}}`), and give it a
-   `default_mappings` entry (assign `_none` to leave it as an editable knob, or `_x`/`_y`/`_depth`).
-2. In `effect.h`: add a field to `Params`, a `case N:` in `setParameter()`, and use it in `process()`.
+```c
+// @map x 0 1023 460      pad X range and default (default: 0 1023 256)
+// @map y 0 1023 400      pad Y range and default (default: 0 1023 512)
+// @param 5 TONE 0 1023 400   an extra knob in slot 5..7 (edit menu, assignable to X/Y)
+// @drive 250             DRIVE default
+// @manual-header         leave this unit's header.c alone (gritcrush)
+```
 
-On the device, any parameter not bound to X/Y/Depth is still editable via the NTS-3's parameter EDIT
-menu, and can be reassigned to X, Y, or Depth. So extra params like DRIVE (or a new TONE/FEEDBACK)
-give you deeper, "overcharge" control beyond just the XY pad — test the changes instantly with
-`scripts/sim_unit.sh`.
+The genericfx format allows **8** parameters. Five are always used (X, Y, DEPTH,
+MODE, DRIVE); granular units spend the other three on SHAPE / SCATTER / REVERSE,
+and any other unit has them free.
+
+After changing a unit's sound, re-run the level calibration so it still matches
+the others, then rebuild:
+
+```sh
+scripts/calibrate_levels.py <unit>     # measures and rewrites its kLevel[] line
+scripts/build_unit.sh <unit>
+```
+
+## Measuring units (no hardware needed)
+
+`tools/probe` compiles a unit's real `effect.h` for the host and plays test
+signals through it, so a change can be checked in seconds without Docker or the
+device:
+
+```sh
+scripts/probe_units.sh                 # every unit: level, tail, brightness, width, CPU
+scripts/probe_units.sh clouds freeze   # just these
+scripts/probe_units.sh --similar       # + which modes sound most alike, across units
+```
+
+Columns: `level` (full-wet vs dry on pink noise, DRIVE 0 — should be ~0 dB),
+`tail` (seconds to -60 dB after the input stops; 20 = holds forever), `bright`
+(spectral centroid), `L/R` (1 = mono, 0 = wide, <0 = phasey), `ns/smp` (host CPU,
+useful for comparing units, not as a device figure). Modes that are silent or
+produce NaN are flagged — that check is how five permanently-silent units and one
+NaN unit were found.
+
+`--similar` ranks every mode against every other unit's modes on a spectral +
+envelope + stereo fingerprint. Use it after voicing a unit to see whether it
+actually occupies its own space.
 
 ## Reference
 

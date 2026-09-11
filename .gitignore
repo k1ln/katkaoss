@@ -13,3 +13,4 @@ deploy/
 
 # macOS
 .DS_Store
+tools/probe/build/

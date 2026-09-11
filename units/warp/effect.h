@@ -29,7 +29,7 @@ class Effect : public Processor {
 
   void init(float *b) override final {
     alloc_.init(b, getBufferSize());
-    ps_.init(alloc_.alloc(24000), 24000);
+    ps_.init(alloc_.alloc(7208), 7208);
     dl_.init(alloc_.alloc(48000), 48000);
     params_ = Params();
     fb_ = 0.f;
@@ -49,13 +49,19 @@ class Effect : public Processor {
     // PITCH fine-tunes +/- around the selected interval
     float ratio = base * (0.9f + p.pitch * 0.2f);
     const float mix = (p.depth + 1.f) * 0.5f;
+    // Per-mode output level, written by scripts/calibrate_levels.py (wet ~ dry on pink noise).
+    static const float kLevel[NUM_MODES] = {1.096f, 1.084f, 1.096f, 1.096f};  // @auto-level
+    const float lvl = kLevel[(p.mode < NUM_MODES ? p.mode : 0)];
     const float fbAmt = p.feedback * 0.85f;
     for (const float *e = out + frames * 2; out != e; in += 2, out += 2) {
       float dry = (in[0] + in[1]) * 0.5f;
-      float shifted = ps_.process(dry + fb_ * fbAmt, ratio);
-      fb_ = dl_.process(shifted, 6000.f, 0.3f, 0.2f);
-      out[0] = dsp::driveMix(in[0], mDrive_, shifted, mix);
-      out[1] = dsp::driveMix(in[1], mDrive_, shifted, mix);
+      float shifted = ps_.process(dry + dsp::softLimit(fb_ * fbAmt), ratio);
+      // One feedback loop only: the delay used to recirculate on its own too
+      // (x1.43 at low frequencies), which pushed the total loop gain past 1
+      // at high FEEDBACK and ran away. The limiter keeps any overshoot bounded.
+      fb_ = dl_.process(shifted, 6000.f, 0.f, 0.2f);
+      out[0] = dsp::driveMix(in[0], mDrive_, shifted, mix, lvl);
+      out[1] = dsp::driveMix(in[1], mDrive_, shifted, mix, lvl);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}

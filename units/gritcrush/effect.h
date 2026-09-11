@@ -47,7 +47,7 @@ class Effect : public Processor
 public:
   uint32_t getBufferSize() const override final { return 0x40000U; } // 1 MB
 
-  // audio parameters
+  // audio parameters  (@manual-header: the SDK example keeps its hand-written header.c)
   enum
   {
     PARAM1 = 0U, // crush: bit-depth reduction amount
