@@ -5,5 +5,8 @@ units/*/*.map
 units/*/*.dmp
 units/*/*.list
 
+# WASM simulator output
+units/*/sim/
+
 # macOS
 .DS_Store

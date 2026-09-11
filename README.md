@@ -161,6 +161,51 @@ official desktop librarian/editor app for the NTS-3):
 Loaded units appear at the end of the effects selection list, in slot order. The NTS-3 remembers
 units by their dev/unit ID and name, so they can be freely reassigned to different slots later.
 
+## Testing in the browser (WASM simulator)
+
+You can run any unit in a browser-based device simulator before flashing hardware. It compiles the
+exact same DSP code (`unit.cc` + `effect.h` + `dsp.h`) to WebAssembly and loads it into the SDK's
+`xypad.html` shell, which emulates the NTS-3: an XY pad, a Depth slider, the built-in
+oscillator/QWERTY-keyboard and sample players as sources, time/frequency scopes, and an
+auto-generated slider for **every** parameter (including MODE and DRIVE, with MODE showing its
+string values).
+
+```sh
+scripts/sim_unit.sh <unit-name>          # build + serve, then open the printed URL in Chrome
+SIM_NO_SERVE=1 scripts/sim_unit.sh <name>   # build only (output in units/<name>/sim/)
+SIM_PORT=8080 scripts/sim_unit.sh <name>    # serve on a custom port
+```
+
+- Compilation uses the official `emscripten/emsdk` Docker image, so no local emscripten install is
+  needed (the first run pulls the image).
+- Open the printed `http://localhost:<port>/<name>.html` in Chrome, click **Toggle playback**, pick
+  a sample or play the keyboard, then drag the XY pad and tweak the parameter sliders.
+- The server ([scripts/serve_sim.py](scripts/serve_sim.py)) sets the COOP/COEP headers that the
+  audio-worklet backend requires — a plain static server will not work.
+
+## Going deeper: editing effects and adding parameters
+
+Each effect is a self-contained C++ class in `units/<name>/effect.h`. Two files define its controls:
+
+- `effect.h` — the DSP: `process()` (audio loop), `setParameter()` (maps param index → value),
+  `getParameterStrValue()` (MODE string labels), and the shared blocks it pulls from `dsp.h`.
+- `header.c` — the parameter descriptors (`min`/`max`/`init`/type/name) and their default X/Y/Depth
+  mappings. **The min/max here are the "borders"** — widen them to allow overcharging a control.
+
+**Yes, there are more parameters available.** The NTS-3 `genericfx` format supports up to **8**
+parameters. Each unit currently uses 5: X, Y, DEPTH, MODE, and DRIVE (index 4). You have **3 spare
+slots** (indices 5–7). To add one:
+
+1. In `header.c`: bump `.num_params`, turn one of the empty `{0,0,0,0,...,{""}}` slots into a real
+   descriptor (e.g. `{0, 1023, 0, 400, k_unit_param_type_none, 0, 0, 0, {"TONE"}}`), and give it a
+   `default_mappings` entry (assign `_none` to leave it as an editable knob, or `_x`/`_y`/`_depth`).
+2. In `effect.h`: add a field to `Params`, a `case N:` in `setParameter()`, and use it in `process()`.
+
+On the device, any parameter not bound to X/Y/Depth is still editable via the NTS-3's parameter EDIT
+menu, and can be reassigned to X, Y, or Depth. So extra params like DRIVE (or a new TONE/FEEDBACK)
+give you deeper, "overcharge" control beyond just the XY pad — test the changes instantly with
+`scripts/sim_unit.sh`.
+
 ## Reference
 
 - [logue-sdk/platform/nts-3_kaoss/README.md](logue-sdk/platform/nts-3_kaoss/README.md) — full API reference (parameter types, curves, runtime hooks, touch events, etc).
