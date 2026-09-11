@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case PITCH: params_.pitch = param_10bit_to_f32(v); break;
       case SIZE: params_.size = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"CALM", "FLOW", "CALVE", "DEEP"};
@@ -38,10 +38,10 @@ class Effect : public Processor {
       float dry = (in[0] + in[1]) * 0.5f; float gl, gr;
       cloud_.process(dry, 0.5f, dsp::clampf(0.6f + p.size * 0.4f, 0.f, 1.f), pitch, 0.6f, 0.5f, false, gl, gr);
       float rl, rr; verb_.process(gl, gr, rl, rr, dsp::clampf(0.85f + p.size * 0.13f, 0.f, 1.f), 0.55f, extra);
-      out[0] = dsp::lerp(in[0], gl * 0.35f + rl, mix); out[1] = dsp::lerp(in[1], gr * 0.35f + rr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, gl * 0.35f + rl, mix); out[1] = dsp::driveMix(in[1], mDrive_, gr * 0.35f + rr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::Reverb verb_; Params params_;
+  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::Reverb verb_; Params params_; float mDrive_ = 0.f;
 };

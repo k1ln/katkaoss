@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case FREQ: params_.freq = param_10bit_to_f32(v); break;
       case SIZE: params_.size = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"BELL", "METAL", "ALIEN", "SUB"};
@@ -38,10 +38,10 @@ class Effect : public Processor {
       float dry = (in[0] + in[1]) * 0.5f;
       float ring = dry * osc_.sine(hz);
       float rl, rr; verb_.process(ring, ring, rl, rr, 0.6f + p.size * 0.35f, 0.3f);
-      out[0] = dsp::lerp(in[0], ring + rl * 0.7f, mix); out[1] = dsp::lerp(in[1], ring + rr * 0.7f, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, ring + rl * 0.7f, mix); out[1] = dsp::driveMix(in[1], mDrive_, ring + rr * 0.7f, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::Reverb verb_; dsp::Osc osc_; Params params_;
+  dsp::BufferAllocator alloc_; dsp::Reverb verb_; dsp::Osc osc_; Params params_; float mDrive_ = 0.f;
 };

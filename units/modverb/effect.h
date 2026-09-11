@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case SIZE: params_.size = param_10bit_to_f32(v); break;
       case MODRATE: params_.modrate = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"SOFT", "LUSH", "SEASICK", "WOW"};
@@ -41,10 +41,10 @@ class Effect : public Processor {
       float m = lfo_.next(inc);
       float chorused = dl_.read(600.f + (m * 0.5f + 0.5f) * depthMod);  // modulated pre-delay
       float rl, rr; verb_.process(chorused, chorused, rl, rr, room, 0.3f);
-      out[0] = dsp::lerp(in[0], rl, mix); out[1] = dsp::lerp(in[1], rr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, rl, mix); out[1] = dsp::driveMix(in[1], mDrive_, rr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::DelayLine dl_; dsp::LFO lfo_; dsp::Reverb verb_; Params params_;
+  dsp::BufferAllocator alloc_; dsp::DelayLine dl_; dsp::LFO lfo_; dsp::Reverb verb_; Params params_; float mDrive_ = 0.f;
 };

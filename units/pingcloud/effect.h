@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case TIME: params_.time = param_10bit_to_f32(v); break;
       case FEEDBACK: params_.feedback = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"WIDE", "DUB", "GRAIN", "INFIN"};
@@ -49,10 +49,10 @@ class Effect : public Processor {
         float gl, gr; cloud_.process((yL + yR) * 0.5f, 0.6f, 0.4f, 1.f, 0.7f, 0.5f, false, gl, gr);
         wl += gl; wr += gr;
       }
-      out[0] = dsp::lerp(in[0], wl, mix); out[1] = dsp::lerp(in[1], wr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, wl, mix); out[1] = dsp::driveMix(in[1], mDrive_, wr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::FBDelay dL_, dR_; dsp::GrainCloud cloud_; Params params_; float pL_ = 0.f, pR_ = 0.f;
+  dsp::BufferAllocator alloc_; dsp::FBDelay dL_, dR_; dsp::GrainCloud cloud_; Params params_; float mDrive_ = 0.f; float pL_ = 0.f, pR_ = 0.f;
 };

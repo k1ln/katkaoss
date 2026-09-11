@@ -261,6 +261,11 @@ class SVF {
     lp = lp_;
     bp = bp_;
   }
+  // convenience overload when the high-pass output is not needed
+  inline void process(float x, float cutoff, float res, float &lp, float &bp) {
+    float hp;
+    process(x, cutoff, res, lp, bp, hp);
+  }
 
  private:
   float lp_ = 0.f, bp_ = 0.f;
@@ -315,6 +320,27 @@ inline float wavefold(float x, float drive) {
   return x;
 }
 
+// Overdrive/grit saturator. amount in [0,1]:
+//  ~0    -> nearly clean, 0.25 -> warm saturation, 1.0 -> brutal fuzz/fold.
+inline float grit(float x, float amount) {
+  if (amount <= 0.0005f) return x;
+  float pre = 1.f + amount * amount * 45.f;  // gentle low, savage high
+  float y = tanhf(x * pre);
+  if (amount > 0.45f) {  // add wavefold bite when pushed hard
+    float f = wavefold(x * (1.f + amount * 7.f), 1.f);
+    float m = (amount - 0.45f) * 1.8f;  // 0..1
+    y = lerp(y, f, 0.35f * (m > 1.f ? 1.f : m));
+  }
+  float makeup = 0.8f + amount * 0.35f;
+  y *= makeup;
+  return y < -1.6f ? -1.6f : (y > 1.6f ? 1.6f : y);
+}
+
+// Apply grit to the wet signal, then dry/wet blend. Used by every unit's output.
+inline float driveMix(float dry, float drive, float wet, float mix) {
+  return lerp(dry, grit(wet, drive), mix);
+}
+
 // Cheap xorshift RNG -> [0,1).
 class Rng {
  public:
@@ -332,7 +358,7 @@ class Rng {
 // Polyphonic granular engine over a recorded buffer (Clouds/Grain/Freeze).
 class GrainCloud {
  public:
-  static constexpr int kMaxGrains = 12;
+  static constexpr int kMaxGrains = 32;  // max simultaneous grains ("ripples")
 
   void init(float *buf, uint32_t size) {
     rec_.init(buf, size);
@@ -349,7 +375,7 @@ class GrainCloud {
     const float durSamples = 480.f + grainSize * grainSize * 9600.f;  // 10ms..~200ms
     if (timer_ <= 0.f) {
       spawn(durSamples, pitch, spread, position);
-      float interval = durSamples / (0.6f + density * 6.f);
+      float interval = durSamples / (0.6f + density * 14.f);  // denser grain stream
       timer_ = interval < 1.f ? 1.f : interval;
     }
     timer_ -= 1.f;
@@ -369,8 +395,8 @@ class GrainCloud {
       gr.t += 1.f;
       if (gr.t >= gr.dur) gr.active = false;
     }
-    outL = l * 0.4f;
-    outR = r * 0.4f;
+    outL = l * 0.5f;
+    outR = r * 0.5f;
   }
 
  private:

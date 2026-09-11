@@ -31,6 +31,7 @@ class Effect : public Processor {
       case SIZE: params_.size = param_10bit_to_f32(value); break;
       case SHIMMER: params_.shimmer = param_10bit_to_f32(value); break;
       case DEPTH: params_.depth = value / 1000.f; break;
+      case 4: mDrive_ = param_10bit_to_f32(value); break;
       case INTERVAL: params_.interval = value; break;
       default: break;
     }
@@ -77,8 +78,8 @@ class Effect : public Processor {
       fbL_ = rl;
       fbR_ = rr;
 
-      out[0] = dsp::lerp(in[0], rl, mix);
-      out[1] = dsp::lerp(in[1], rr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, rl, mix);
+      out[1] = dsp::driveMix(in[1], mDrive_, rr, mix);
     }
   }
 
@@ -88,6 +89,6 @@ class Effect : public Processor {
   dsp::BufferAllocator alloc_;
   dsp::Reverb verb_;
   dsp::PitchShifter shifter_;
-  Params params_;
+  Params params_; float mDrive_ = 0.f;
   float fbL_ = 0.f, fbR_ = 0.f;
 };

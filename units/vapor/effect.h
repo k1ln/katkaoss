@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case SLOW: params_.slow = param_10bit_to_f32(v); break;
       case SIZE: params_.size = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"MALL", "DREAM", "SLOW", "PLUSH"};
@@ -43,10 +43,10 @@ class Effect : public Processor {
       dl_.write(g);
       float wow = dl_.read(300.f + (lfo_.next(wowInc) * 0.5f + 0.5f) * 200.f);
       float rl, rr; verb_.process(wow, wow, rl, rr, 0.8f + p.size * 0.15f, 0.5f);
-      out[0] = dsp::lerp(in[0], gl * 0.4f + rl, mix); out[1] = dsp::lerp(in[1], gr * 0.4f + rr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, gl * 0.4f + rl, mix); out[1] = dsp::driveMix(in[1], mDrive_, gr * 0.4f + rr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::DelayLine dl_; dsp::LFO lfo_; dsp::Reverb verb_; Params params_;
+  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::DelayLine dl_; dsp::LFO lfo_; dsp::Reverb verb_; Params params_; float mDrive_ = 0.f;
 };

@@ -17,7 +17,7 @@ class Effect : public Processor {
     switch (i) {
       case PITCH: params_.pitch = param_10bit_to_f32(v); break;
       case FEEDBACK: params_.feedback = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break;
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break;
       case MODE: params_.mode = v; break;
     }
   }
@@ -54,8 +54,8 @@ class Effect : public Processor {
       float dry = (in[0] + in[1]) * 0.5f;
       float shifted = ps_.process(dry + fb_ * fbAmt, ratio);
       fb_ = dl_.process(shifted, 6000.f, 0.3f, 0.2f);
-      out[0] = dsp::lerp(in[0], shifted, mix);
-      out[1] = dsp::lerp(in[1], shifted, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, shifted, mix);
+      out[1] = dsp::driveMix(in[1], mDrive_, shifted, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
@@ -64,6 +64,6 @@ class Effect : public Processor {
   dsp::BufferAllocator alloc_;
   dsp::PitchShifter ps_;
   dsp::FBDelay dl_;
-  Params params_;
+  Params params_; float mDrive_ = 0.f;
   float fb_ = 0.f;
 };

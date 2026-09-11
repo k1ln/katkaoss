@@ -17,7 +17,7 @@ class Effect : public Processor {
     switch (i) {
       case RATE: params_.rate = param_10bit_to_f32(v); break;
       case FEEDBACK: params_.feedback = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break;
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break;
       case MODE: params_.mode = v; break;
     }
   }
@@ -64,8 +64,8 @@ class Effect : public Processor {
         wet = dl_.read(d);
         fb_ = wet;
       }
-      out[0] = dsp::lerp(in[0], wet, mix);
-      out[1] = dsp::lerp(in[1], wet, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, wet, mix);
+      out[1] = dsp::driveMix(in[1], mDrive_, wet, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
@@ -77,5 +77,5 @@ class Effect : public Processor {
   dsp::LFO lfo_;
   float apz_[kAP] = {0.f};
   float fb_ = 0.f;
-  Params params_;
+  Params params_; float mDrive_ = 0.f;
 };

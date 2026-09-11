@@ -31,6 +31,7 @@ class Effect : public Processor {
       case POSITION: params_.position = param_10bit_to_f32(value); break;
       case SIZE: params_.size = param_10bit_to_f32(value); break;
       case DEPTH: params_.depth = value / 1000.f; break;
+      case 4: mDrive_ = param_10bit_to_f32(value); break;
       case CATCH: params_.catchMode = value; break;
       default: break;
     }
@@ -74,8 +75,8 @@ class Effect : public Processor {
       cloud_.process(dry, density, p.size, 1.f, spread, pos, freeze, gl, gr);
       float rl, rr;
       verb_.process(gl, gr, rl, rr, 0.75f, 0.4f);
-      out[0] = dsp::lerp(in[0], gl + rl * 0.5f, mix);
-      out[1] = dsp::lerp(in[1], gr + rr * 0.5f, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, gl + rl * 0.5f, mix);
+      out[1] = dsp::driveMix(in[1], mDrive_, gr + rr * 0.5f, mix);
     }
   }
 
@@ -85,6 +86,6 @@ class Effect : public Processor {
   dsp::BufferAllocator alloc_;
   dsp::GrainCloud cloud_;
   dsp::Reverb verb_;
-  Params params_;
+  Params params_; float mDrive_ = 0.f;
   float glide_ = 0.5f;
 };

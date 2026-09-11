@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case RATE: params_.rate = param_10bit_to_f32(v); break;
       case FEEDBACK: params_.feedback = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"WARM", "JET", "DEEP", "WASH"};
@@ -44,11 +44,11 @@ class Effect : public Processor {
       fb_ = x;
       float rl, rr; verb_.process(x, x, rl, rr, 0.75f, 0.35f);
       float wl = x + rl * verbAmt, wr = x + rr * verbAmt;
-      out[0] = dsp::lerp(in[0], wl, mix); out[1] = dsp::lerp(in[1], wr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, wl, mix); out[1] = dsp::driveMix(in[1], mDrive_, wr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
   static constexpr int kAP = 8;
-  dsp::BufferAllocator alloc_; dsp::Reverb verb_; dsp::LFO lfo_; float z_[kAP] = {0.f}; float fb_ = 0.f; Params params_;
+  dsp::BufferAllocator alloc_; dsp::Reverb verb_; dsp::LFO lfo_; float z_[kAP] = {0.f}; float fb_ = 0.f; Params params_; float mDrive_ = 0.f;
 };

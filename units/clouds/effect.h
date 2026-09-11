@@ -31,6 +31,7 @@ class Effect : public Processor {
       case TEXTURE: params_.texture = param_10bit_to_f32(value); break;
       case SIZE: params_.size = param_10bit_to_f32(value); break;
       case DEPTH: params_.depth = value / 1000.f; break;
+      case 4: mDrive_ = param_10bit_to_f32(value); break;
       case MODE: params_.mode = value; break;
       default: break;
     }
@@ -57,10 +58,10 @@ class Effect : public Processor {
     float density = 0.5f, spread = 0.5f;
     bool freeze = false;
     switch (p.mode) {
-      case M_GRAIN: density = 0.2f; spread = 0.3f; break;
-      case M_CLOUD: density = 0.55f; spread = 0.6f; break;
+      case M_GRAIN: density = 0.35f; spread = 0.3f; break;
+      case M_CLOUD: density = 0.7f; spread = 0.6f; break;
       case M_DENSE: density = 1.f; spread = 0.85f; break;
-      case M_FREEZE: density = 0.7f; spread = 0.7f; freeze = true; break;
+      case M_FREEZE: density = 0.85f; spread = 0.7f; freeze = true; break;
       default: break;
     }
     spread = dsp::clampf(spread * (0.4f + p.texture), 0.f, 1.f);
@@ -73,12 +74,12 @@ class Effect : public Processor {
       cloud_.process(dry, density, p.size, 1.f, spread, p.texture, freeze, gl, gr);
 
       float rl, rr;
-      verb_.process(gl, gr, rl, rr, 0.7f, 0.4f);
-      float wl = gl + rl * verbAmt;
-      float wr = gr + rr * verbAmt;
+      verb_.process(gl, gr, rl, rr, 0.85f, 0.35f);   // bigger, longer hall
+      float wl = gl + rl * (0.8f + verbAmt);          // stronger reverb send
+      float wr = gr + rr * (0.8f + verbAmt);
 
-      out[0] = dsp::lerp(in[0], wl, mix);
-      out[1] = dsp::lerp(in[1], wr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, wl, mix);
+      out[1] = dsp::driveMix(in[1], mDrive_, wr, mix);
     }
   }
 
@@ -88,5 +89,5 @@ class Effect : public Processor {
   dsp::BufferAllocator alloc_;
   dsp::GrainCloud cloud_;
   dsp::Reverb verb_;
-  Params params_;
+  Params params_; float mDrive_ = 0.f;
 };

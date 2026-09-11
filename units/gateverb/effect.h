@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case SIZE: params_.size = param_10bit_to_f32(v); break;
       case GATE: params_.gate = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"GATE", "REV", "DUCK", "SLAM"};
@@ -50,11 +50,11 @@ class Effect : public Processor {
       float wl = rl * g, wr = rr * g;
       if (duck) { float d = 1.f - dsp::clampf(env_ * 8.f, 0.f, 0.8f); wl *= d; wr *= d; }
       if (p.mode == M_SLAM) { wl = dsp::softclip(wl * 2.f); wr = dsp::softclip(wr * 2.f); }
-      out[0] = dsp::lerp(in[0], wl, mix); out[1] = dsp::lerp(in[1], wr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, wl, mix); out[1] = dsp::driveMix(in[1], mDrive_, wr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::Reverb verb_; Params params_;
+  dsp::BufferAllocator alloc_; dsp::Reverb verb_; Params params_; float mDrive_ = 0.f;
   float env_ = 0.f; uint32_t hold_ = 0; float gateGain_ = 0.f;
 };

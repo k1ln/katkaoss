@@ -17,7 +17,7 @@ class Effect : public Processor {
     switch (i) {
       case SCATTER: params_.scatter = param_10bit_to_f32(v); break;
       case SIZE: params_.size = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break;
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break;
       case MODE: params_.mode = v; break;
     }
   }
@@ -51,8 +51,8 @@ class Effect : public Processor {
       float dry = (in[0] + in[1]) * 0.5f;
       float gl, gr;
       cloud_.process(dry, density, p.size, pitch, spread, 0.5f, false, gl, gr);
-      out[0] = dsp::lerp(in[0], gl, mix);
-      out[1] = dsp::lerp(in[1], gr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, gl, mix);
+      out[1] = dsp::driveMix(in[1], mDrive_, gr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
@@ -60,5 +60,5 @@ class Effect : public Processor {
  private:
   dsp::BufferAllocator alloc_;
   dsp::GrainCloud cloud_;
-  Params params_;
+  Params params_; float mDrive_ = 0.f;
 };

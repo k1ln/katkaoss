@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case CRUSH: params_.crush = param_10bit_to_f32(v); break;
       case GRAIN: params_.grain = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"CLEAN", "GRIT", "CRUSH", "NUKE"};
@@ -39,10 +39,10 @@ class Effect : public Processor {
       c = roundf(c * levels) / levels;  // bit crush
       float gl, gr; cloud_.process(c, 0.7f, p.grain, 1.f, 0.6f, 0.5f, false, gl, gr);
       float rl, rr; verb_.process(gl, gr, rl, rr, 0.7f, 0.3f);
-      out[0] = dsp::lerp(in[0], gl + rl * 0.5f, mix); out[1] = dsp::lerp(in[1], gr + rr * 0.5f, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, gl + rl * 0.5f, mix); out[1] = dsp::driveMix(in[1], mDrive_, gr + rr * 0.5f, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::Reverb verb_; Params params_;
+  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::Reverb verb_; Params params_; float mDrive_ = 0.f;
 };

@@ -17,7 +17,7 @@ class Effect : public Processor {
     switch (i) {
       case TIME: params_.time = param_10bit_to_f32(v); break;
       case FEEDBACK: params_.feedback = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break;
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break;
       case MODE: params_.mode = v; break;
     }
   }
@@ -58,8 +58,8 @@ class Effect : public Processor {
       verb_.process(dl, dr, rl, rr, 0.8f, damp);
       float wl = dl + rl * 0.6f;
       float wr = dr + rr * 0.6f;
-      out[0] = dsp::lerp(in[0], wl, mix);
-      out[1] = dsp::lerp(in[1], wr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, wl, mix);
+      out[1] = dsp::driveMix(in[1], mDrive_, wr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
@@ -68,5 +68,5 @@ class Effect : public Processor {
   dsp::BufferAllocator alloc_;
   dsp::FBDelay dlL_, dlR_;
   dsp::Reverb verb_;
-  Params params_;
+  Params params_; float mDrive_ = 0.f;
 };

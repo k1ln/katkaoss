@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case GRAIN: params_.grain = param_10bit_to_f32(v); break;
       case SIZE: params_.size = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"NAVE", "APSE", "CRYPT", "HEAVEN"};
@@ -42,11 +42,11 @@ class Effect : public Processor {
       if (shimmer > 0.f) feed += ps_.process(fb_, 2.f) * shimmer;
       float rl, rr; verb_.process(feed, feed, rl, rr, room, damp, shimmer > 0.f ? 0.04f : 0.f);
       fb_ = (rl + rr) * 0.5f;
-      out[0] = dsp::lerp(in[0], rl, mix); out[1] = dsp::lerp(in[1], rr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, rl, mix); out[1] = dsp::driveMix(in[1], mDrive_, rr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
   dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::PitchShifter ps_; dsp::Reverb verb_;
-  Params params_; float fb_ = 0.f;
+  Params params_; float mDrive_ = 0.f; float fb_ = 0.f;
 };

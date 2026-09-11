@@ -15,7 +15,7 @@ class Effect : public Processor {
   inline void setParameter(uint8_t i, int32_t v) override final {
     switch (i) { case DRIFT: params_.drift = param_10bit_to_f32(v); break;
       case SIZE: params_.size = param_10bit_to_f32(v); break;
-      case DEPTH: params_.depth = v / 1000.f; break; case MODE: params_.mode = v; break; }
+      case DEPTH: params_.depth = v / 1000.f; break; case 4: mDrive_ = param_10bit_to_f32(v); break; case MODE: params_.mode = v; break; }
   }
   inline const char *getParameterStrValue(uint8_t i, int32_t v) const override final {
     static const char *m[NUM_MODES] = {"DAWN", "NIGHT", "SOLAR", "POLAR"};
@@ -40,10 +40,10 @@ class Effect : public Processor {
       float dry = (in[0] + in[1]) * 0.5f; float gl, gr;
       cloud_.process(dry, 0.6f, p.size, pitch, 0.7f, glide_, false, gl, gr);
       float rl, rr; verb_.process(gl, gr, rl, rr, 0.85f, damp);
-      out[0] = dsp::lerp(in[0], gl * 0.4f + rl, mix); out[1] = dsp::lerp(in[1], gr * 0.4f + rr, mix);
+      out[0] = dsp::driveMix(in[0], mDrive_, gl * 0.4f + rl, mix); out[1] = dsp::driveMix(in[1], mDrive_, gr * 0.4f + rr, mix);
     }
   }
   inline void touchEvent(uint8_t, uint8_t, uint32_t, uint32_t) override final {}
  private:
-  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::Reverb verb_; Params params_; float glide_ = 0.5f;
+  dsp::BufferAllocator alloc_; dsp::GrainCloud cloud_; dsp::Reverb verb_; Params params_; float mDrive_ = 0.f; float glide_ = 0.5f;
 };

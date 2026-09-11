@@ -51,7 +51,7 @@ const __unit_header genericfx_unit_header_t unit_header = {
     .unit_id = 0xCU,                                          // ID for this unit. Scoped within the context of a given dev_id.
     .version = 0x00010000U,                                   // This unit's version: major.minor.patch (major<<16 minor<<8 patch).
     .name = "RoomVerb",                                          // Name for this unit, will be displayed on device
-    .num_params = 4,                                          // Number of valid parameter descriptors. (max. 8)
+    .num_params = 5,                                          // Number of valid parameter descriptors. (max. 8)
     
     .params = {
       // Format: min, max, center (unused), default, type, frac. bits, frac. mode, <reserved>, name
@@ -68,7 +68,7 @@ const __unit_header genericfx_unit_header_t unit_header = {
       // Example of a strings type parameter
       {0, 3, 0, 1, k_unit_param_type_strings, 0, 0, 0, {"PARAM4"}},
       
-      {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
+      {0, 1023, 0, 250, k_unit_param_type_none, 0, 0, 0, {"DRIVE"}},
       {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
       {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}},
       {0, 0, 0, 0, k_unit_param_type_none, 0, 0, 0, {""}}},
@@ -91,7 +91,7 @@ const __unit_header genericfx_unit_header_t unit_header = {
     // PARAM4 set to the fixed value of 1
     {k_genericfx_param_assign_none, k_genericfx_curve_linear, k_genericfx_curve_unipolar, 0, 3, 1},
     
-    {k_genericfx_param_assign_none, k_genericfx_curve_linear, k_genericfx_curve_unipolar, 0, 0, 0},
+    {k_genericfx_param_assign_none, k_genericfx_curve_linear, k_genericfx_curve_unipolar, 0, 1023, 250},
     {k_genericfx_param_assign_none, k_genericfx_curve_linear, k_genericfx_curve_unipolar, 0, 0, 0},
     {k_genericfx_param_assign_none, k_genericfx_curve_linear, k_genericfx_curve_unipolar, 0, 0, 0},
     {k_genericfx_param_assign_none, k_genericfx_curve_linear, k_genericfx_curve_unipolar, 0, 0, 0}
